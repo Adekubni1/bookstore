@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ebook Library</title>
+
+<style>
+:root{
+  --bg:#0b1210;
+  --panel:#0f1a16;
+  --panel-2:#0c1512;
+  --green:#19c37d;
+  --green-dim:#0e7a4d;
+  --text:#e8f1ec;
+  --muted:#9fb3a8;
+  --border:#1f3a31;
+  --metal:#7f8c86;
+}
+
+*{
+  box-sizing:border-box;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
+}
+
+body{
+  margin:0;
+  background:radial-gradient(circle at top, #0f1f1a, var(--bg));
+  color:var(--text);
+}
+
+/* HEADER */
+header{
+  padding:20px 28px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.brand{
+  font-weight:600;
+  letter-spacing:1px;
+}
+
+.brand span{
+  color:var(--green);
+}
+
+.status-pill{
+  font-size:12px;
+  padding:6px 10px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  color:var(--muted);
+}
+
+/* LAYOUT */
+.container{
+  display:grid;
+  grid-template-columns:280px 1fr;
+  min-height:calc(100vh - 70px);
+}
+
+/* SIDEBAR */
+.sidebar{
+  border-right:1px solid var(--border);
+  padding:20px;
+  background:linear-gradient(180deg, var(--panel), var(--panel-2));
+}
+
+.upload-box{
+  border:1px dashed var(--border);
+  padding:18px;
+  border-radius:10px;
+  text-align:center;
+  transition:.2s;
+  cursor:pointer;
+}
+
+.upload-box:hover{
+  border-color:var(--green);
+  box-shadow:0 0 0 2px rgba(25,195,125,0.1);
+}
+
+.upload-box input{
+  display:none;
+}
+
+.btn{
+  background:var(--green);
+  border:none;
+  padding:10px 12px;
+  width:100%;
+  margin-top:10px;
+  border-radius:8px;
+  color:#06140f;
+  font-weight:600;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.btn:hover{
+  background:#14a86b;
+}
+
+/* MAIN */
+.main{
+  padding:24px;
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+  overflow:hidden;
+  border-radius:12px;
+}
+
+thead{
+  background:var(--panel);
+}
+
+th, td{
+  text-align:left;
+  padding:14px;
+  border-bottom:1px solid var(--border);
+  font-size:14px;
+}
+
+tr{
+  transition:.2s;
+}
+
+tr:hover{
+  background:rgba(25,195,125,0.05);
+}
+
+.file-icon{
+  color:var(--green);
+  margin-right:8px;
+}
+
+.actions button{
+  margin-right:8px;
+  padding:6px 10px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  cursor:pointer;
+  transition:.2s;
+}
+
+.actions button:hover{
+  border-color:var(--green);
+  color:var(--green);
+}
+
+.delete:hover{
+  border-color:#ff5c5c;
+  color:#ff5c5c;
+}
+
+/* DROP STATE */
+.dragover{
+  border-color:var(--green) !important;
+  background:rgba(25,195,125,0.05);
+}
+
+/* MOBILE */
+@media(max-width:800px){
+  .container{
+    grid-template-columns:1fr;
+  }
+  .sidebar{
+    border-right:none;
+    border-bottom:1px solid var(--border);
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">EBOOK <span>LIBRARY</span></div>
+  <div class="status-pill">SECURE NODE • ACTIVE</div>
+</header>
+
+<div class="container">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <label class="upload-box" id="dropZone">
+      <p>Drop files here or click to upload</p>
+      <input type="file" id="fileInput" multiple />
+    </label>
+
+    <button class="btn" onclick="document.getElementById('fileInput').click()">
+      Upload Files
+    </button>
+
+    <p style="font-size:12px;color:var(--muted);margin-top:14px;">
+      Supported: PDF, images, documents
+    </p>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Size</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="fileTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const fileInput = document.getElementById("fileInput");
+const table = document.getElementById("fileTable");
+const dropZone = document.getElementById("dropZone");
+
+let files = [];
+
+/* FORMAT SIZE */
+function formatSize(bytes){
+  if(bytes < 1024) return bytes + " B";
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + " KB";
+  return (bytes/1024/1024).toFixed(1) + " MB";
+}
+
+/* ICONS */
+function getIcon(name){
+  if(name.endsWith(".pdf")) return "📕";
+  if(name.match(/\.(png|jpg|jpeg|gif)$/)) return "🖼️";
+  if(name.match(/\.(doc|docx)$/)) return "📄";
+  return "📁";
+}
+
+/* RENDER */
+function render(){
+  table.innerHTML = "";
+
+  files.forEach((file, index)=>{
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td><span class="file-icon">${getIcon(file.name)}</span>${file.name}</td>
+      <td>${formatSize(file.size)}</td>
+      <td style="color:#19c37d;">READY</td>
+      <td class="actions">
+        <button onclick="downloadFile(${index})">Download</button>
+        <button class="delete" onclick="deleteFile(${index})">Delete</button>
+      </td>
+    `;
+    table.appendChild(row);
+  });
+}
+
+/* UPLOAD */
+fileInput.addEventListener("change", (e)=>{
+  const selected = Array.from(e.target.files);
+
+  selected.forEach(file=>{
+    file.url = URL.createObjectURL(file);
+    files.push(file);
+  });
+
+  render();
+});
+
+/* DOWNLOAD */
+function downloadFile(i){
+  const file = files[i];
+  const a = document.createElement("a");
+  a.href = file.url;
+  a.download = file.name;
+  a.click();
+}
+
+/* DELETE */
+function deleteFile(i){
+  URL.revokeObjectURL(files[i].url);
+  files.splice(i,1);
+  render();
+}
+
+/* DRAG & DROP */
+dropZone.addEventListener("dragover", (e)=>{
+  e.preventDefault();
+  dropZone.classList.add("dragover");
+});
+
+dropZone.addEventListener("dragleave", ()=>{
+  dropZone.classList.remove("dragover");
+});
+
+dropZone.addEventListener("drop", (e)=>{
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+
+  const dropped = Array.from(e.dataTransfer.files);
+
+  dropped.forEach(file=>{
+    file.url = URL.createObjectURL(file);
+    files.push(file);
+  });
+
+  render();
+});
+</script>
+
+</body>
+</html>
